@@ -237,7 +237,7 @@ int main(int argc, char* argv[]) {
     };
 
     int option;
-    while ((option = getopt_long(argc, argv, "i:o:3:5:", longOptions, nullptr)) != -1) {
+    while ((option = getopt_long(argc, argv, "i:o:3:5:f", longOptions, nullptr)) != -1) {
         switch (option) {
             case 'i':
                 inputDirectory = optarg;
