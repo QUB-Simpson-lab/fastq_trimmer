@@ -8,11 +8,11 @@ Compile the `fastq_trimmer` tool using the following command (as done with Ubunt
 
 ```sh
 g++ -std=c++11 fastq_trimmer.cpp -o fastq_trimmer -lz -pthread -O2
-
+```
 ## Usage
 ```sh
 ./fastq_trimmer --in/-i INPUT_DIRECTORY --out/-o OUTPUT_DIRECTORY [--N3prime/-3] 3_PRIME_TRIM_BASES [--N5prime/-5] 5_PRIME_TRIM_BASES
-
+```
 ### Options
 - `--in` or `-i`: Input directory containing the FastQ files to be trimmed.
 - `--out` or `-o`: Output directory where trimmed FastQ files will be saved.
