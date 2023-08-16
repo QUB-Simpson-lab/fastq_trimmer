@@ -24,7 +24,7 @@ g++ -std=c++11 fastq_trimmer.cpp -o fastq_trimmer -lz -pthread -O2
 The `fastq_trimmer` tool provides the following functionalities:
 
 - Determines if a file is likely gzipped and accordingly handles I/O.
-- Retrieves the list of files with supported extensions (`*.fastq`/`*.fq`/`*.fastq.gz`/`*.fq.gz`) from the input a directory.
+- Retrieves the list of files with supported extensions (`*.fastq`/`*.fq`/`*.fastq.gz`/`*.fq.gz`) from the input directory.
 - Creates the output directory if it doesn't exist.
 - Writes messages to a log file within the output directory.
 - Trims (both sequence and phred qualities) FastQ files from both gzipped and non-gzipped formats.
@@ -34,9 +34,12 @@ The `fastq_trimmer` tool provides the following functionalities:
 Before compiling, ensure you have the necessary dependencies installed:
 - g++ compiler (if not installed: `sudo apt install build-essential`)
 - zlib library (`-lz` (if not installed: `sudo apt install zlib1g-dev`))
-- POSIX threads (`-pthread (if not installed: `sudo apt install libpthread-stubs0-dev`)
+- POSIX threads (`-pthread` (if not installed: `sudo apt install libpthread-stubs0-dev`))
 
-Compile the tool using the provided command above, replacing `fastq_trimmer.cpp` with the appropriate path to your source code.
+Compile the tool using the provided command after navigating to a directory containing the source file:
+```sh
+g++ -std=c++11 fastq_trimmer.cpp -o fastq_trimmer -lz -pthread -O2
+```
 Alternatively, you may follow this recipe as a guide:
 ```sh
 # Download the archive
@@ -52,14 +55,15 @@ fastq_trimmer --in/-i INPUT_DIRECTORY --out/-o OUTPUT_DIRECTORY [--N3prime/-3] 3
 ```
 
 ## Usage Example
-Trim (5 bases from the 3' end and 3 bases from the 5' end) FastQ files for all files within the `input_dir` and save the trimmed files in the `output_dir`:
-`./fastq_trimmer --in input_dir --out output_dir --N3prime 5 --N5prime 3`
-
+To trim 5 bases from the 3' end and 3 bases from the 5' end of each FastQ file within the `input_dir`, and save the trimmed files in the `output_dir`:
+```sh
+./fastq_trimmer --in input_dir --out output_dir --N3prime 5 --N5prime 3
+```
 ## License
 This tool is provided under the GPLv3 License. See the [LICENSE](LICENSE) file for details.
 
 ## Contact
-For any questions or issues, please open an issue on here GitHub.
+For any questions or issues, please [open an issue here](https://github.com/QUB-Simpson-lab/fastq_trimmer/issues/new/choose) on GitHub.
 
 ---
 © 2023 [eptroendle](https://github.com/eptroendle) [@QUB-Simpson-lab](https://github.com/QUB-Simpson-lab)
