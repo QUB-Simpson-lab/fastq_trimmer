@@ -1,7 +1,7 @@
 # fastq_trimmer
 
 ## Description
-`fastq_trimmer` is a lightweight and high-performance C++ tool for consistently hard-trimming `*.fastq`/`*.fq` (and `*.fastq.gz`/`*.fq.gz`) reads from the 3' (_left_) or 5' (_right_) ends.
+`fastq_trimmer` is a lightweight and high-performance C++ tool for consistently hard-trimming `*.fastq`/`*.fq` (and `*.fastq.gz`/`*.fq.gz`) reads from the 5' (_left_) or 3' (_right_) ends.
 
 ## Compilation
 Compile the `fastq_trimmer` tool using the following command (as done with Ubuntu Linux):
