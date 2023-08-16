@@ -32,15 +32,34 @@ The `fastq_trimmer` tool provides the following functionalities:
 
 ## Compilation
 Before compiling, ensure you have the necessary dependencies installed:
-- g++ compiler (e.g., `sudo apt install build-essential`)
-- zlib library (`-lz`; )
-- POSIX threads (`-pthread`)
+- g++ compiler (if not installed: `sudo apt install build-essential`)
+- zlib library (`-lz` (if not installed: `sudo apt install zlib1g-dev`))
+- POSIX threads (`-pthread (if not installed: `sudo apt install libpthread-stubs0-dev`)
 
-Compile the tool using the provided command, replacing `fastq_trimmer.cpp` with the appropriate path to your source code.
+Compile the tool using the provided command above, replacing `fastq_trimmer.cpp` with the appropriate path to your source code.
+Alternatively, you may follow this recipe as a guide:
+```sh
+# Download the archive
+git clone https://github.com/QUB-Simpson-lab/fastq_trimmer.git
+# Enter the downloaded archive
+cd fastq_trimmer
+# Compile
+g++ -std=c++11 fastq_trimmer.cpp -o fastq_trimmer -lz -pthread -O2
+# Install
+sudo cp fastq_trimmer /usr/local/bin/
+# Usage
+fastq_trimmer --in/-i INPUT_DIRECTORY --out/-o OUTPUT_DIRECTORY [--N3prime/-3] 3_PRIME_TRIM_BASES [--N5prime/-5] 5_PRIME_TRIM_BASES
+```
 
 ## Usage Example
 Trim (5 bases from the 3' end and 3 bases from the 5' end) FastQ files for all files within the `input_dir` and save the trimmed files in the `output_dir`:
 `./fastq_trimmer --in input_dir --out output_dir --N3prime 5 --N5prime 3`
 
 ## License
+This tool is provided under the GPLv3 License. See the [LICENSE](LICENSE) file for details.
 
+## Contact
+For any questions or issues, please open an issue on here GitHub.
+
+---
+© 2023 [eptroendle](https://github.com/eptroendle) [@QUB-Simpson-lab](https://github.com/QUB-Simpson-lab)
