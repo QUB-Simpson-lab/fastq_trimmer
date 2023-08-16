@@ -73,12 +73,12 @@ void trimGzippedFastq(gzFile in, gzFile out, int N3, int N5) {
         std::string line = buffer;
 
         if (lineCount % 4 == 1 || lineCount % 4 == 3) {
-            // Trim from the 3' end (N3)
-            std::string trimmedLine = line.substr(N3);
+            // Trim from the 5' end (N5)
+            std::string trimmedLine = line.substr(N5);
              if (N5 > 0) {
                 size_t length = trimmedLine.length();
                 if (length > N5) {
-                    trimmedLine = trimmedLine.substr(0, length - N5);
+                    trimmedLine = trimmedLine.substr(0, length - N3);
                 } else {
                     trimmedLine.clear();
                 }
@@ -100,13 +100,13 @@ void trimNonGzippedFastq(FILE* in, FILE* out, int N3, int N5) {
         std::string line = buffer;
 
         if (lineCount % 4 == 1 || lineCount % 4 == 3) {
-            // Trim from the 3' end (N3)
-            std::string trimmedLine = line.substr(N3);
             // Trim from the 5' end (N5)
+            std::string trimmedLine = line.substr(N5);
+            // Trim from the 5' end (N3)
             if (N5 > 0) {
                 size_t length = trimmedLine.length();
                 if (length > N5) {
-                    trimmedLine = trimmedLine.substr(0, length - N5);
+                    trimmedLine = trimmedLine.substr(0, length - N3);
                 } else {
                     trimmedLine.clear();
                 }
@@ -206,7 +206,7 @@ void trimFastqFilesInDirectory(const std::string& inputDirectory, const std::str
             futures.erase(futures.begin());
         }
 
-        std::cout << "Processing: " << filename << " (N3 = " << N3 << ", N5 = " << N5 << ")" << std::endl;
+        std::cout << "Processing: " << filename << " (N5 = " << N5 << ", N3 = " << N3 << ")" << std::endl;
 
         futures.push_back(std::async(std::launch::async, [&completedIterations, totalIterations, inputFile, outputFile, N3, N5, logFileName]() {
                 processFile(inputFile, outputFile, N3, N5, logFileName);
