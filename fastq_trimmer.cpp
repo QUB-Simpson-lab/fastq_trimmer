@@ -75,9 +75,10 @@ void trimGzippedFastq(gzFile in, gzFile out, int N3, int N5) {
         if (lineCount % 4 == 1 || lineCount % 4 == 3) {
             // Trim from the 5' end (N5)
             std::string trimmedLine = line.substr(N5);
-             if (N5 > 0) {
+            // Trim from the 3' end (N3)
+            if (N3 > 0) {
                 size_t length = trimmedLine.length();
-                if (length > N5) {
+                if (length > N3) {
                     trimmedLine = trimmedLine.substr(0, length - N3);
                 } else {
                     trimmedLine.clear();
@@ -102,10 +103,10 @@ void trimNonGzippedFastq(FILE* in, FILE* out, int N3, int N5) {
         if (lineCount % 4 == 1 || lineCount % 4 == 3) {
             // Trim from the 5' end (N5)
             std::string trimmedLine = line.substr(N5);
-            // Trim from the 5' end (N3)
-            if (N5 > 0) {
+            // Trim from the 3' end (N3)
+            if (N3 > 0) {
                 size_t length = trimmedLine.length();
-                if (length > N5) {
+                if (length > N3) {
                     trimmedLine = trimmedLine.substr(0, length - N3);
                 } else {
                     trimmedLine.clear();
