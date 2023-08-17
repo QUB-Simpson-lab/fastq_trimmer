@@ -27,8 +27,9 @@ The `fastq_trimmer` tool provides the following functionalities:
 - Retrieves the list of files with supported extensions (`*.fastq`/`*.fq`/`*.fastq.gz`/`*.fq.gz`) from the input directory.
 - Creates the output directory if it doesn't exist.
 - Writes messages to a log file within the output directory.
-- Trims (both sequence and phred qualities) FastQ files from both gzipped and non-gzipped formats.
-- File processing is asynchronously paralellised.
+- Trims both sequence and phred qualities in all reads a fixed number of bases from the 5' and 3' ends
+- Dynamically handles both gzipped and non-gzipped formatted FastQs.
+- File processing is asynchronously parallelised.
 
 ## Compilation
 Before compiling, ensure you have the necessary dependencies installed:
