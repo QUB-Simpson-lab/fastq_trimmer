@@ -1,13 +1,16 @@
-#include <iostream>
-#include <sys/stat.h>
+#include <cstdlib>
+#include <cstring>
 #include <fstream>
+#include <future>
+#include <iostream>
 #include <string>
+#include <sys/stat.h>
 #include <vector>
 #include <dirent.h>
-#include <unistd.h>
 #include <getopt.h>
+#include <unistd.h>
 #include <zlib.h>
-#include <future>
+
 
 bool isLikelyGzipped(const std::string& filename) {
     std::ifstream file(filename, std::ios::binary);
@@ -223,22 +226,29 @@ void trimFastqFilesInDirectory(const std::string& inputDirectory, const std::str
 }
 
 int main(int argc, char* argv[]) {
-    std::string inputDirectory;
-    std::string outputDirectory;
+    std::cout << "Welcome to fastq_trimmer v0.1" << std::endl;
+    std::cout << "Program: " << argv[0] << std::endl;
+    std::cout << "Command-line arguments:" << std::endl;
+    for (int i = 1; i < argc; ++i) {
+        std::cout << "  " << argv[i] << std::endl;
+    }
+    std::string inputDirectory = "";
+    std::string outputDirectory = "";
     int N3 = 0;
     int N5 = 0;
     bool force = false;
     struct option longOptions[] = {
         {"in", required_argument, nullptr, 'i'},
         {"out", required_argument, nullptr, 'o'},
-        {"N3prime", optional_argument, nullptr, '3'},
-        {"N5prime", optional_argument, nullptr, '5'},
-        {"force", optional_argument, nullptr, 'f'},
+        {"N3prime", required_argument, nullptr, '3'},
+        {"N5prime", required_argument, nullptr, '5'},
+        {"force", no_argument, nullptr, 'f'},
         {nullptr, 0, nullptr, 0}
     };
-
     int option;
-    while ((option = getopt_long(argc, argv, "i:o:3:5:f", longOptions, nullptr)) != -1) {
+    int optionIndex = 0;
+
+    while ((option = getopt_long(argc, argv, "i:o:3:5:f", longOptions, &optionIndex)) != -1) {
         switch (option) {
             case 'i':
                 inputDirectory = optarg;
@@ -247,22 +257,28 @@ int main(int argc, char* argv[]) {
                 outputDirectory = optarg;
                 break;
             case '3':
-                N3 = std::stoi(optarg);
+                N3 = optarg ? std::stoi(optarg) : 0;
                 break;
             case '5':
-                N5 = std::stoi(optarg);
+                N5 = optarg ? std::stoi(optarg) : 0;
                 break;
             case 'f':
                 force = true;
                 break;
             default:
-                std::cerr << "Usage: " << argv[0] << " --in INPUT_DIRECTORY --out OUTPUT_DIRECTORY [--N3prime/-3] 3_PRIME_TRIM_VALUE [--N5prime/-5] 5_PRIME_TRIM_VALUE" << std::endl;
+                std::cerr << "Usage: " << argv[0] << " --in/-i INPUT_DIRECTORY --out/-o OUTPUT_DIRECTORY [--N3prime/-3] 3_PRIME_TRIM_VALUE [--N5prime/-5] 5_PRIME_TRIM_VALUE [--force/-f]" << std::endl;
                 return 1;
         }
     }
 
+    std::cout << "Input Directory: " << inputDirectory << std::endl;
+    std::cout << "Output Directory: " << outputDirectory << std::endl;
+    std::cout << "N3 Prime Trim Value: " << N3 << std::endl;
+    std::cout << "N5 Prime Trim Value: " << N5 << std::endl;
+    std::cout << "Force Flag: " << (force ? "true" : "false") << std::endl;
+
     if (inputDirectory.empty() || outputDirectory.empty() || (N3 < 0) || ( N5 < 0) || (N3 == 0 && N5 == 0) ) {
-        std::cerr << "Missing or invalid arguments. Usage: " << argv[0] << " --in INPUT_DIRECTORY --out OUTPUT_DIRECTORY [--N3prime/-3] 3_PRIME_TRIM_VALUE [--N5prime/-5] 5_PRIME_TRIM_VALUE" << std::endl;
+        std::cerr << "Missing or invalid arguments. Usage: " << argv[0] << " --in/-i INPUT_DIRECTORY --out/-o OUTPUT_DIRECTORY [--N3prime/-3] 3_PRIME_TRIM_VALUE [--N5prime/-5] 5_PRIME_TRIM_VALUE" << std::endl;
         return 1;
     }
 
@@ -272,9 +288,30 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-   if (!createDirectoryIfNotExists(outputDirectory)) {
+    if (!createDirectoryIfNotExists(outputDirectory)) {
         return 1;
-   }
+    }
+
+    // Check if output directory is the same as the input directory
+    char* resolvedInputPath = realpath(inputDirectory.c_str(), nullptr);
+    char* resolvedOutputPath = realpath(outputDirectory.c_str(), nullptr);
+
+    if (resolvedInputPath == nullptr || resolvedOutputPath == nullptr) {
+        std::cerr << "Error resolving paths. Exiting..." << std::endl;
+        free(resolvedInputPath);
+        free(resolvedOutputPath);
+        return 1;
+    }
+
+    bool arePathsEqual = (strcmp(resolvedInputPath, resolvedOutputPath) == 0);
+
+    free(resolvedInputPath);
+    free(resolvedOutputPath);
+
+    if (arePathsEqual) {
+        std::cerr << "Input and output directories cannot be the same." << std::endl;
+        return 1;
+    }
 
     trimFastqFilesInDirectory(inputDirectory, outputDirectory, N3, N5, force);
 
