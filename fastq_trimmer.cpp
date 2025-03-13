@@ -11,7 +11,6 @@
 #include <unistd.h>
 #include <zlib.h>
 
-
 bool isLikelyGzipped(const std::string& filename) {
     std::ifstream file(filename, std::ios::binary);
     if (!file) {
@@ -68,73 +67,131 @@ void writeToLog(const std::string& logFileName, const std::string& message) {
     }
 }
 
-void trimGzippedFastq(gzFile in, gzFile out, int N3, int N5) {
+void trimGzippedFastq(gzFile in, gzFile out, gzFile out3p, gzFile out5p,
+                      const int& N3, const int& N5, const bool& keep) {
     char buffer[4096];
     int lineCount = 0;
-
     while (gzgets(in, buffer, sizeof(buffer)) != nullptr) {
-        std::string line = buffer;
-
-        if (lineCount % 4 == 1 || lineCount % 4 == 3) {
-            // Trim from the 5' end (N5)
-            std::string trimmedLine = line.substr(N5);
-            // Trim from the 3' end (N3)
-            if (N3 > 0) {
-                size_t length = trimmedLine.length();
-                if (length > N3) {
-                    trimmedLine = trimmedLine.substr(0, length - N3);
-                } else {
-                    trimmedLine.clear();
-                }
-            }
-            gzwrite(out, trimmedLine.c_str(), trimmedLine.size());
-        } else {
-            gzwrite(out, line.c_str(), line.size());
+        size_t len = strlen(buffer);
+        if (len > 0 && buffer[len - 1] == '\n') {
+            buffer[len - 1] = '\0';  // Remove newline to work with trimming
+            --len;
         }
 
+        if (lineCount % 4 == 1 || lineCount % 4 == 3) { // Sequence or quality line
+            char* trimmedStart = buffer + N5;  // Move pointer for 5' trim
+            size_t trimmedLen = (len > N3 + N5) ? (len - N3 - N5) : 0;
+
+            gzwrite(out, trimmedStart, trimmedLen);
+            gzwrite(out, "\n", 1);  // Ensure newline
+
+            if (keep) {
+                if (out5p && N5 > 0) {
+                    gzwrite(out5p, buffer, N5);
+                    gzwrite(out5p, "\n", 1);
+                }
+                if (out3p && N3 > 0) {
+                    gzwrite(out3p, buffer + len - N3, N3);
+                    gzwrite(out3p, "\n", 1);
+                }
+            }
+        } else {
+            gzwrite(out, buffer, len);
+            gzwrite(out, "\n", 1);
+            if (keep) {
+                if (out5p && N5 > 0) {
+                    gzwrite(out5p, buffer, len);
+                    gzwrite(out5p, "\n", 1);
+                }
+                if (out3p && N3 > 0) {
+                    gzwrite(out3p, buffer, len);
+                    gzwrite(out3p, "\n", 1);
+                }
+            }
+        }
         lineCount++;
     }
 }
 
-void trimNonGzippedFastq(FILE* in, FILE* out, int N3, int N5) {
+void trimNonGzippedFastq(FILE* in, FILE* out, FILE* out3p, FILE* out5p, const int& N3, const int& N5, const bool& keep) {
     char buffer[4096];
     int lineCount = 0;
 
     while (fgets(buffer, sizeof(buffer), in) != nullptr) {
-        std::string line = buffer;
+        size_t len = strlen(buffer);
 
-        if (lineCount % 4 == 1 || lineCount % 4 == 3) {
-            // Trim from the 5' end (N5)
-            std::string trimmedLine = line.substr(N5);
-            // Trim from the 3' end (N3)
-            if (N3 > 0) {
-                size_t length = trimmedLine.length();
-                if (length > N3) {
-                    trimmedLine = trimmedLine.substr(0, length - N3);
-                } else {
-                    trimmedLine.clear();
-                }
-            }
-            fprintf(out, "%s", trimmedLine.c_str());
-        } else {
-            fprintf(out, "%s", line.c_str());
+        // Ensure we keep the newline character
+        bool hasNewline = (len > 0 && buffer[len - 1] == '\n');
+        if (hasNewline) {
+            buffer[len - 1] = '\0';  // Temporarily remove newline for processing
+            len--;
         }
 
-        lineCount++;
+        if (lineCount % 4 == 1 || lineCount % 4 == 3) {
+            char* trimmedStart = buffer + N5;
+            size_t trimmedLen = (len > N3 + N5) ? (len - N3 - N5) : 0;
+
+            if (keep) {
+                // Write trimmed off 5' sequence
+                if (out5p && N5 > 0) {
+                    fprintf(out5p, "%.*s\n", (int)std::min(len, (size_t)N5), buffer);
+                }
+                // Write trimmed off 3' sequence
+                if (out3p && N3 > 0) {
+                    size_t trim3Start = len > N3 ? len - N3 : 0;
+                    fprintf(out3p, "%s\n", buffer + trim3Start);
+                }
+            }
+
+            fprintf(out, "%.*s\n", (int)trimmedLen, trimmedStart);
+        } else {
+            fprintf(out, "%s\n", buffer);
+            if (keep) {
+                if (out5p && N5 > 0) {
+                    fprintf(out5p, "%s\n", buffer);
+                }
+                if (out3p && N3 > 0) {
+                    fprintf(out3p, "%s\n", buffer);
+                }
+            }
+        }
+
+       lineCount++;
     }
 }
 
-void processFile(const std::string& inputFile, const std::string& outputFile, int N3, int N5, const std::string& logFileName) {
-    writeToLog(logFileName, "Attempting to process " + inputFile + "...");
+void processFile(const std::string& inputDirectory, const std::string& outputDirectory, const std::string& filename, const int& N3, const int& N5, const std::string& logFileName, const bool& keep) {
+    std::string inputFile = inputDirectory + "/" + filename;
+    std::string outputFile = outputDirectory + "/" + filename;
+    writeToLog(logFileName, "Attempting to process " + inputFile + " and write to " + outputFile + " ...");
+
     if (isLikelyGzipped(inputFile)) {
         gzFile in = gzopen(inputFile.c_str(), "rb");
         gzFile out = gzopen(outputFile.c_str(), "wb");
-
+        gzFile out3p = nullptr;
+        gzFile out5p = nullptr;
+        if (keep) {
+            if (N3 > 0) {
+                std::string trim3File = (outputDirectory + "/3-prime/trim3_" + filename);
+                out3p = gzopen(trim3File.c_str(), "wb");
+            }
+            if (N5 > 0) {
+                std::string trim5File = (outputDirectory + "/5-prime/trim5_" + filename);
+                out5p = gzopen(trim5File.c_str(), "wb");
+            }
+        }
         if (in && out) {
-            trimGzippedFastq(in, out, N3, N5);
+            trimGzippedFastq(in, out, out3p, out5p, N3, N5, keep);
             gzclose(in);
             gzclose(out);
-
+            if (keep) {
+                if(out3p) {
+                    gzclose(out3p);
+                }
+                if(out5p) {
+                    gzclose(out5p);
+                }
+            }
             writeToLog(logFileName, "Processed (gzipped): " + inputFile);
         }
         else {
@@ -143,12 +200,27 @@ void processFile(const std::string& inputFile, const std::string& outputFile, in
     } else {
         FILE* in = fopen(inputFile.c_str(), "r");
         FILE* out = fopen(outputFile.c_str(), "w");
-
+        FILE* out3p = nullptr;
+        FILE* out5p = nullptr;
+        if (keep) {
+            std::string trim5File = (outputDirectory + "/5-prime/trim5_" + filename);
+            std::string trim3File = (outputDirectory + "/3-prime/trim3_" + filename);
+            out3p = fopen(trim3File.c_str(), "w");
+            out5p = fopen(trim5File.c_str(), "w");
+        }
         if (in && out) {
-            trimNonGzippedFastq(in, out, N3, N5);
+            trimNonGzippedFastq(in, out, out3p, out5p, N3, N5, keep);
             fclose(in);
             fclose(out);
 
+            if (keep) {
+                if (out3p) {
+                    fclose(out3p);
+                }
+                if (out5p) {
+                fclose(out5p);
+                }
+            }
             writeToLog(logFileName, "Processed (non-gzipped): " + inputFile);
         } else {
             writeToLog(logFileName, "Error processing (non-gzipped): " + inputFile);
@@ -156,7 +228,7 @@ void processFile(const std::string& inputFile, const std::string& outputFile, in
     }
 }
 
-void trimFastqFilesInDirectory(const std::string& inputDirectory, const std::string& outputDirectory, int N3, int N5, bool force) {
+void trimFastqFilesInDirectory(const std::string& inputDirectory, const std::string& outputDirectory, int N3, int N5, bool force, bool keep) {
 
     DIR* dir = opendir(inputDirectory.c_str());
     if (!dir) {
@@ -170,6 +242,29 @@ void trimFastqFilesInDirectory(const std::string& inputDirectory, const std::str
             closedir(dir);
             return;
         }
+
+        if (keep) {
+            std::string outputDirectory3Prime = outputDirectory + "/3-prime";
+            std::string outputDirectory5Prime = outputDirectory + "/5-prime";
+            if (N3 > 0) {
+                if (access(outputDirectory3Prime.c_str(), F_OK) == -1) {
+                    if (mkdir(outputDirectory3Prime.c_str(), 0777) != 0) {
+                        std::cerr << "Error creating output directory: " << outputDirectory3Prime << std::endl;
+                        closedir(dir);
+                        return;
+                    }
+                }
+            }
+            if (N5 > 0) {
+                if (access(outputDirectory5Prime.c_str(), F_OK) == -1) {
+                    if (mkdir(outputDirectory5Prime.c_str(), 0777) != 0) {
+                        std::cerr << "Error creating output directory: " << outputDirectory5Prime << std::endl;
+                        closedir(dir);
+                        return;
+                    }
+                }
+            }
+        }
     }
 
     // Create log file
@@ -182,7 +277,7 @@ void trimFastqFilesInDirectory(const std::string& inputDirectory, const std::str
 
     // Parallel processing using std::async and std::thread
     std::vector<std::future<void>> futures;
-    std::size_t numCores = std::thread::hardware_concurrency() - 1;
+    std::size_t numCores = std::thread::hardware_concurrency();
 
     // Get a list of filenames with supported extensions from the input directory
     std::vector<std::string> supportedExtensions = { ".fq", ".fq.gz", ".fastq", ".fastq.gz" };
@@ -193,7 +288,6 @@ void trimFastqFilesInDirectory(const std::string& inputDirectory, const std::str
 
 
     for (const std::string& filename : fileNames) {
-        std::string inputFile = inputDirectory + "/" + filename;
         std::string outputFile = outputDirectory + "/" + filename;
         bool file_exists = (access(outputFile.c_str(), F_OK) == 0);
         //bool file_exists = std::ifstream(output_file_name).good();
@@ -201,7 +295,7 @@ void trimFastqFilesInDirectory(const std::string& inputDirectory, const std::str
         if (!force && file_exists) {
             std::cout << "Output file already exists for " << filename << ", skipping..." << std::endl;
             ++completedIterations;
-            writeToLog(logFileName, "Skipped file: " + inputFile + " (output file already exists)");
+            writeToLog(logFileName, "Skipped file: " + filename + " (output file already exists)");
             continue; // Skip processing this iteration
         }
 
@@ -212,8 +306,8 @@ void trimFastqFilesInDirectory(const std::string& inputDirectory, const std::str
 
         std::cout << "Processing: " << filename << " (N5 = " << N5 << ", N3 = " << N3 << ")" << std::endl;
 
-        futures.push_back(std::async(std::launch::async, [&completedIterations, totalIterations, inputFile, outputFile, N3, N5, logFileName]() {
-                processFile(inputFile, outputFile, N3, N5, logFileName);
+        futures.push_back(std::async(std::launch::async, [&completedIterations, totalIterations, inputDirectory, outputDirectory, filename, N3, N5, logFileName, keep]() {
+                processFile(inputDirectory, outputDirectory, filename, N3, N5, logFileName, keep);
                 ++completedIterations;
                 std::cout << "Progress: " << completedIterations << "/" << totalIterations << " iterations" << std::endl;
         }));
@@ -223,10 +317,12 @@ void trimFastqFilesInDirectory(const std::string& inputDirectory, const std::str
     for (auto& future : futures) {
         future.wait();
     }
+    closedir(dir);
+    return;
 }
 
 int main(int argc, char* argv[]) {
-    std::cout << "Welcome to fastq_trimmer v0.1" << std::endl;
+    std::cout << "Welcome to fastq_trimmer v0.2" << std::endl;
     std::cout << "Program: " << argv[0] << std::endl;
     std::cout << "Command-line arguments:" << std::endl;
     for (int i = 1; i < argc; ++i) {
@@ -237,18 +333,20 @@ int main(int argc, char* argv[]) {
     int N3 = 0;
     int N5 = 0;
     bool force = false;
+    bool keep = false;
     struct option longOptions[] = {
         {"in", required_argument, nullptr, 'i'},
         {"out", required_argument, nullptr, 'o'},
         {"N3prime", required_argument, nullptr, '3'},
         {"N5prime", required_argument, nullptr, '5'},
         {"force", no_argument, nullptr, 'f'},
+        {"keep", no_argument, nullptr, 'k'},
         {nullptr, 0, nullptr, 0}
     };
     int option;
     int optionIndex = 0;
 
-    while ((option = getopt_long(argc, argv, "i:o:3:5:f", longOptions, &optionIndex)) != -1) {
+    while ((option = getopt_long(argc, argv, "i:o:3:5:fk", longOptions, &optionIndex)) != -1) {
         switch (option) {
             case 'i':
                 inputDirectory = optarg;
@@ -257,16 +355,20 @@ int main(int argc, char* argv[]) {
                 outputDirectory = optarg;
                 break;
             case '3':
-                N3 = optarg ? std::stoi(optarg) : 0;
+                N3 = std::stoi(optarg);
                 break;
             case '5':
-                N5 = optarg ? std::stoi(optarg) : 0;
+                N5 = std::stoi(optarg);
                 break;
             case 'f':
                 force = true;
                 break;
+            case 'k':
+                std::cout << 'k' << std::endl;
+                keep = true;
+                break;
             default:
-                std::cerr << "Usage: " << argv[0] << " --in/-i INPUT_DIRECTORY --out/-o OUTPUT_DIRECTORY [--N3prime/-3] 3_PRIME_TRIM_VALUE [--N5prime/-5] 5_PRIME_TRIM_VALUE [--force/-f]" << std::endl;
+                std::cerr << "Usage: " << argv[0] << " --in/-i INPUT_DIRECTORY --out/-o OUTPUT_DIRECTORY [--N3prime/-3] 3_PRIME_TRIM_VALUE [--N5prime/-5] 5_PRIME_TRIM_VALUE [--force/-f] [--keep/-k]" << std::endl;
                 return 1;
         }
     }
@@ -276,6 +378,7 @@ int main(int argc, char* argv[]) {
     std::cout << "N3 Prime Trim Value: " << N3 << std::endl;
     std::cout << "N5 Prime Trim Value: " << N5 << std::endl;
     std::cout << "Force Flag: " << (force ? "true" : "false") << std::endl;
+    std::cout << "Keep Flag: " << (keep ? "true" : "false") << std::endl;
 
     if (inputDirectory.empty() || outputDirectory.empty() || (N3 < 0) || ( N5 < 0) || (N3 == 0 && N5 == 0) ) {
         std::cerr << "Missing or invalid arguments. Usage: " << argv[0] << " --in/-i INPUT_DIRECTORY --out/-o OUTPUT_DIRECTORY [--N3prime/-3] 3_PRIME_TRIM_VALUE [--N5prime/-5] 5_PRIME_TRIM_VALUE" << std::endl;
@@ -290,6 +393,19 @@ int main(int argc, char* argv[]) {
 
     if (!createDirectoryIfNotExists(outputDirectory)) {
         return 1;
+    }
+
+    if (keep) {
+        if (N3 > 0) {
+            if (!createDirectoryIfNotExists(outputDirectory + "/3-prime")) {
+                return 1;
+            }
+        }
+        if (N5 > 0) {
+            if (!createDirectoryIfNotExists(outputDirectory + "/5-prime")) {
+                return 1;
+            }
+        }
     }
 
     // Check if output directory is the same as the input directory
@@ -313,7 +429,7 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    trimFastqFilesInDirectory(inputDirectory, outputDirectory, N3, N5, force);
+    trimFastqFilesInDirectory(inputDirectory, outputDirectory, N3, N5, force, keep);
 
     return 0;
 }
